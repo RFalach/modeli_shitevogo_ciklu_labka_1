@@ -249,7 +249,41 @@ function toScreen(x, y, w, h, pad) {
     return { sx, sy };
 }
 
-function drawAxes(w, h, pad) {
+function drawGrid(w, h, pad) {
+    const xRange = view.xMax - view.xMin;
+    const yRange = view.yMax - view.yMin;
+    const xStep = niceStep(xRange / 8);
+    const yStep = niceStep(yRange / 6);
+
+    ctx.strokeStyle = '#eee';
+    ctx.lineWidth = 1;
+    ctx.font = '11px system-ui';
+    ctx.fillStyle = '#888';
+
+    const xStart = Math.ceil(view.xMin / xStep) * xStep;
+    for (let x = xStart; x <= view.xMax + 1e-9; x += xStep) {
+	const pos = toScreen(x, view.yMin, w, h, pad);
+	ctx.beginPath();
+	ctx.moveTo(pos.sx, pad);
+	ctx.lineTo(pos.sx, h - pad);
+	ctx.stroke();
+	ctx.textAlign = 'center';
+	ctx.textBaseline = 'top';
+	ctx.fillText(formatNum(x), pos.sx, h - pad + 6);
+    }
+
+    const yStart = Math.ceil(view.yMin / yStep) * yStep;
+    for (let y = yStart; y <= view.yMax + 1e-9; y += yStep) {
+	const pos = toScreen(view.xMin, y, w, h, pad);
+	ctx.beginPath();
+	ctx.moveTo(pad, pos.sy);
+	ctx.lineTo(w - pad, pos.sy);
+	ctx.stroke();
+	ctx.textAlign = 'right';
+	ctx.textBaseline = 'middle';
+	ctx.fillText(formatNum(y), pad - 8, pos.sy);
+    }
+
     ctx.strokeStyle = '#bbb';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -307,7 +341,7 @@ function drawChart() {
     if (points.length < 2) return;
 
     computeView();
-    drawAxes(w, h, pad);
+    drawGrid(w, h, pad);
 
     drawCurve(w, h, pad, x => lagrangeEval(points, x), '#3498db');
 
@@ -319,3 +353,21 @@ function drawChart() {
 }
 
 window.addEventListener('resize', drawChart);
+
+function niceStep(raw) {
+    if (raw <= 0 || !isFinite(raw)) return 1;
+    const exp = Math.floor(Math.log10(raw));
+    const f = raw / Math.pow(10, exp);
+    let nf;
+    if (f < 1.5) nf = 1;
+    else if (f < 3) nf = 2;
+    else if (f < 7) nf = 5;
+    else nf = 10;
+    return nf * Math.pow(10, exp);
+}
+
+function formatNum(v) {
+    if (Math.abs(v) < 1e-9) return "0";
+    if (Math.abs(v) >= 10000 || (Math.abs(v) < 0.01 && v !== 0)) return v.toExponential(1);
+    return (Math.round(v * 100) / 100).toString();
+}

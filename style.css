@@ -107,3 +107,30 @@ select {
     border: 1px solid #ccc;
     border-radius: 6px;
 }
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.legend .line {
+    width: 22px;
+    height: 3px;
+    border-radius: 2px;
+}
