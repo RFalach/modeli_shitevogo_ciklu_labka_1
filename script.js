@@ -575,3 +575,56 @@ function animateLsm() {
 
 document.getElementById('animLsmBtn').addEventListener('click', animateLsm);
 
+const fill5Btn = document.getElementById('fill5Btn');
+const fill10Btn = document.getElementById('fill10Btn');
+const fill20Btn = document.getElementById('fill20Btn');
+
+const DATA_5 = `0, 1.0
+1, 0.8
+2, 0.5
+3, 0.1
+4, -0.2`;
+
+const DATA_10 = `0, 10
+1, 9.1
+2, 8.2
+3, 7.4
+4, 6.5
+5, 5.7
+6, 4.9
+7, 4.2
+8, 3.6`;
+
+const DATA_20 = `0, 0
+1, 1
+2, 8
+3, 27
+4, 64
+5, 125
+6, 216
+7, 343
+8, 512
+9, 729
+10, 1000
+11, 1331
+12, 1728
+13, 2197
+14, 2744
+15, 3375
+16, 4096
+17, 4913
+18, 5832
+19, 6859`;
+
+fill5Btn.addEventListener('click', () => {
+    pointsInput.value = DATA_5;
+});
+
+fill10Btn.addEventListener('click', () => {
+    pointsInput.value = DATA_10;
+});
+
+fill20Btn.addEventListener('click', () => {
+    pointsInput.value = DATA_20;
+});
+
