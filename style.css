@@ -85,3 +85,25 @@ button:hover { background: #2980b9; }
   color: #c0392b;
   border: 1px solid #f5b7b1;
 }
+
+.chart-wrap {
+    margin-top: 16px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+#chart {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 500px;
+    display: block;
+}
+
+select {
+    font: inherit;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}

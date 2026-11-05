@@ -4,7 +4,13 @@ const clearBtn = document.getElementById('clearBtn');
 const degreeSelect = document.getElementById('degreeSelect');
 const calcBtn = document.getElementById('calcBtn');
 
+const chart = document.getElementById('chart');
+const ctx = chart.getContext('2d');
+
 let points = [];
+
+let coefsLSM = null;
+let view = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
 
 function parsePoints(text) {
     const lines = text.split('\n');
@@ -187,21 +193,129 @@ function calculate() {
 	console.log("x=" + p.x, "y=" + p.y, "y_=" + yHat.toFixed(6), "r=" + (p.y - yHat).toFixed(6));
     }
 
-    const coefs = solveLSM(points, maxDegree);
+    coefsLSM = solveLSM(points, maxDegree);
 
     console.log("=== МНК ===");
-    console.log("коефіцієнти:", coefs);
+    console.log("коефіцієнти:", coefsLSM);
     for (const p of points) {
-	const yHat = polyEval(coefs, p.x);
+	const yHat = polyEval(coefsLSM, p.x);
 	console.log("x=" + p.x, "y=" + p.y, "y_=" + yHat.toFixed(6), "r=" + (p.y - yHat).toFixed(6));
     }
 
     let lsmSSE = 0;
     for (const p of points) {
-	const e = p.y - polyEval(coefs, p.x);
+	const e = p.y - polyEval(coefsLSM, p.x);
 	lsmSSE += e * e;
     }
     console.log("МНК: сума квадратів залишків =", lsmSSE);
+
+    drawChart();
 }
 
 calcBtn.addEventListener("click", calculate);
+
+function resizeChart() {
+    const rect = chart.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    chart.width = Math.round(rect.width * dpr);
+    chart.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w: rect.width, h: rect.height };
+}
+
+function computeView() {
+    let xMin = Infinity, xMax = -Infinity;
+    let yMin = Infinity, yMax = -Infinity;
+
+    for (const p of points) {
+	if (p.x < xMin) xMin = p.x;
+	if (p.x > xMax) xMax = p.x;
+	if (p.y < yMin) yMin = p.y;
+	if (p.y > yMax) yMax = p.y;
+    }
+
+    const dx = (xMax - xMin) || 1;
+    const dy = (yMax - yMin) || 1;
+
+    view.xMin = xMin - dx * 0.1;
+    view.xMax = xMax + dx * 0.1;
+    view.yMin = yMin - dy * 0.2;
+    view.yMax = yMax + dy * 0.2;
+}
+
+function toScreen(x, y, w, h, pad) {
+    const sx = pad + (x - view.xMin) / (view.xMax - view.xMin) * (w - 2 * pad);
+    const sy = h - pad - (y - view.yMin) / (view.yMax - view.yMin) * (h - 2 * pad);
+    return { sx, sy };
+}
+
+function drawAxes(w, h, pad) {
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pad, h - pad);
+    ctx.lineTo(w - pad, h - pad);
+    ctx.moveTo(pad, pad);
+    ctx.lineTo(pad, h - pad);
+    ctx.stroke();
+}
+
+function drawCurve(w, h, pad, fn, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const steps = 300;
+    let started = false;
+
+    for (let i = 0; i <= steps; i++) {
+	const x = view.xMin + (view.xMax - view.xMin) * i / steps;
+	const y = fn(x);
+	if (!isFinite(y)) { started = false; continue; }
+
+	const pos = toScreen(x, y, w, h, pad);
+	if (!started) { ctx.moveTo(pos.sx, pos.sy); started = true; }
+	else ctx.lineTo(pos.sx, pos.sy);
+    }
+
+    ctx.stroke();
+}
+
+function drawPoints(w, h, pad) {
+    for (const p of points) {
+	const pos = toScreen(p.x, p.y, w, h, pad);
+	ctx.beginPath();
+	ctx.arc(pos.sx, pos.sy, 5, 0, Math.PI * 2);
+	ctx.fillStyle = '#e74c3c';
+	ctx.fill();
+	ctx.strokeStyle = '#fff';
+	ctx.lineWidth = 2;
+	ctx.stroke();
+    }
+}
+
+function drawChart() {
+    const size = resizeChart();
+    const w = size.w;
+    const h = size.h;
+    const pad = 50;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+
+    if (points.length < 2) return;
+
+    computeView();
+    drawAxes(w, h, pad);
+
+    drawCurve(w, h, pad, x => lagrangeEval(points, x), '#3498db');
+
+    if (coefsLSM) {
+	drawCurve(w, h, pad, x => polyEval(coefsLSM, x), '#2ecc71');
+    }
+
+    drawPoints(w, h, pad);
+}
+
+window.addEventListener('resize', drawChart);
