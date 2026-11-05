@@ -12,6 +12,8 @@ let points = [];
 let coefsLSM = null;
 let view = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
 
+let mode = 'all';
+
 function parsePoints(text) {
     const lines = text.split('\n');
     const result = [];
@@ -343,9 +345,11 @@ function drawChart() {
     computeView();
     drawGrid(w, h, pad);
 
-    drawCurve(w, h, pad, x => lagrangeEval(points, x), '#3498db');
+    if (mode === 'all' || mode === 'interp') {
+	drawCurve(w, h, pad, x => lagrangeEval(points, x), '#3498db');
+    }
 
-    if (coefsLSM) {
+    if ((mode === 'all' || mode === 'lsm') && coefsLSM) {
 	drawCurve(w, h, pad, x => polyEval(coefsLSM, x), '#2ecc71');
     }
 
@@ -371,3 +375,11 @@ function formatNum(v) {
     if (Math.abs(v) >= 10000 || (Math.abs(v) < 0.01 && v !== 0)) return v.toExponential(1);
     return (Math.round(v * 100) / 100).toString();
 }
+
+document.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.addEventListener('change', () => {
+	if (!r.checked) return;
+	mode = r.value;
+	drawChart();
+    });
+});
