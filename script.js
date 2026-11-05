@@ -17,6 +17,12 @@ let view = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
 
 let mode = 'all';
 
+let interpVisibleCount = null;
+let interpTimer = null;
+
+let lsmProgress = 1;
+let lsmRAF = null;
+
 function parsePoints(text) {
     const lines = text.split('\n');
     const result = [];
@@ -321,11 +327,15 @@ function drawCurve(w, h, pad, fn, color) {
 }
 
 function drawPoints(w, h, pad) {
-    for (const p of points) {
+    for (let i = 0; i < points.length; i++) {
+	const p = points[i];
 	const pos = toScreen(p.x, p.y, w, h, pad);
+
+	const isActive = interpVisibleCount !== null && i === interpVisibleCount - 1;
+
 	ctx.beginPath();
-	ctx.arc(pos.sx, pos.sy, 5, 0, Math.PI * 2);
-	ctx.fillStyle = '#e74c3c';
+	ctx.arc(pos.sx, pos.sy, isActive ? 9 : 5, 0, Math.PI * 2);
+	ctx.fillStyle = isActive ? '#f39c12' : '#e74c3c';
 	ctx.fill();
 	ctx.strokeStyle = '#fff';
 	ctx.lineWidth = 2;
@@ -353,11 +363,20 @@ function drawChart() {
     }
 
     if (mode === 'all' || mode === 'interp') {
-	drawCurve(w, h, pad, x => lagrangeEval(points, x), '#3498db');
+	const visible = interpVisibleCount !== null ? interpVisibleCount : points.length;
+	if (visible >= 2) {
+	    const subPts = points.slice(0, visible);
+	    drawCurve(w, h, pad, x => lagrangeEval(subPts, x), '#3498db');
+	}
     }
 
     if ((mode === 'all' || mode === 'lsm') && coefsLSM) {
-	drawCurve(w, h, pad, x => polyEval(coefsLSM, x), '#2ecc71');
+	const base = coefsLSM[0];
+	const t = lsmProgress;
+	drawCurve(w, h, pad, x => {
+	    const full = polyEval(coefsLSM, x);
+	    return base + (full - base) * t;
+	}, '#2ecc71');
     }
 
     drawPoints(w, h, pad);
@@ -404,12 +423,15 @@ function resizeResidChart() {
 function drawResidualsOnMain(w, h, pad) {
     if (!coefsLSM) return;
 
+    const visible = Math.ceil(points.length * lsmProgress);
+
     ctx.save();
     ctx.strokeStyle = '#9b59b6';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 3]);
 
-    for (const p of points) {
+    for (let i = 0; i < visible; i++) {
+	const p = points[i];
 	const yHat = polyEval(coefsLSM, p.x);
 	const a = toScreen(p.x, p.y, w, h, pad);
 	const b = toScreen(p.x, yHat, w, h, pad);
@@ -486,3 +508,70 @@ function drawResidChart() {
 	rctx.fill();
     }
 }
+
+function animateInterp() {
+    if (interpTimer) {
+	clearTimeout(interpTimer);
+	interpTimer = null;
+    }
+
+    if (points.length < 2) {
+	console.log("need at least 2 points");
+	return;
+    }
+
+    interpVisibleCount = 1;
+
+    const step = () => {
+	interpVisibleCount++;
+	drawChart();
+
+	if (interpVisibleCount >= points.length) {
+	    interpVisibleCount = null;
+	    interpTimer = null;
+	    drawChart();
+	    return;
+	}
+
+	interpTimer = setTimeout(step, 500);
+    };
+
+    step();
+}
+
+document.getElementById('animInterpBtn').addEventListener('click', animateInterp);
+
+function animateLsm() {
+    if (lsmRAF) {
+	cancelAnimationFrame(lsmRAF);
+	lsmRAF = null;
+    }
+
+    if (points.length < 2 || !coefsLSM) {
+	console.log("need to calculate first");
+	return;
+    }
+
+    lsmProgress = 0;
+    const start = performance.now();
+    const duration = 1200;
+
+    const frame = (now) => {
+	const t = Math.min(1, (now - start) / duration);
+	lsmProgress = 1 - Math.pow(1 - t, 3);
+	drawChart();
+
+	if (t < 1) {
+	    lsmRAF = requestAnimationFrame(frame);
+	} else {
+	    lsmRAF = null;
+	    lsmProgress = 1;
+	    drawChart();
+	}
+    };
+
+    lsmRAF = requestAnimationFrame(frame);
+}
+
+document.getElementById('animLsmBtn').addEventListener('click', animateLsm);
+
