@@ -134,3 +134,22 @@ select {
     height: 3px;
     border-radius: 2px;
 }
+
+.chart-wrap.small {
+    margin-top: 12px;
+}
+
+#residChart {
+    width: 100%;
+    aspect-ratio: 16 / 5;
+    max-height: 200px;
+    display: block;
+}
+
+.legend .line.dash {
+    background: repeating-linear-gradient(
+	to right,
+	#9b59b6 0 4px,
+	transparent 4px 8px
+    );
+}

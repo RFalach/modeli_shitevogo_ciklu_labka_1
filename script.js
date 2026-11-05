@@ -7,6 +7,9 @@ const calcBtn = document.getElementById('calcBtn');
 const chart = document.getElementById('chart');
 const ctx = chart.getContext('2d');
 
+const residChart = document.getElementById('residChart');
+const rctx = residChart.getContext('2d');
+
 let points = [];
 
 let coefsLSM = null;
@@ -345,6 +348,10 @@ function drawChart() {
     computeView();
     drawGrid(w, h, pad);
 
+    if ((mode === 'all' || mode === 'lsm') && coefsLSM) {
+	drawResidualsOnMain(w, h, pad);
+    }
+
     if (mode === 'all' || mode === 'interp') {
 	drawCurve(w, h, pad, x => lagrangeEval(points, x), '#3498db');
     }
@@ -354,6 +361,7 @@ function drawChart() {
     }
 
     drawPoints(w, h, pad);
+    drawResidChart();
 }
 
 window.addEventListener('resize', drawChart);
@@ -383,3 +391,98 @@ document.querySelectorAll('input[name="mode"]').forEach(r => {
 	drawChart();
     });
 });
+
+function resizeResidChart() {
+    const rect = residChart.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    residChart.width = Math.round(rect.width * dpr);
+    residChart.height = Math.round(rect.height * dpr);
+    rctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w: rect.width, h: rect.height };
+}
+
+function drawResidualsOnMain(w, h, pad) {
+    if (!coefsLSM) return;
+
+    ctx.save();
+    ctx.strokeStyle = '#9b59b6';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+
+    for (const p of points) {
+	const yHat = polyEval(coefsLSM, p.x);
+	const a = toScreen(p.x, p.y, w, h, pad);
+	const b = toScreen(p.x, yHat, w, h, pad);
+	ctx.beginPath();
+	ctx.moveTo(a.sx, a.sy);
+	ctx.lineTo(b.sx, b.sy);
+	ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+function drawResidChart() {
+    const size = resizeResidChart();
+    const w = size.w;
+    const h = size.h;
+    const pad = 40;
+
+    rctx.clearRect(0, 0, w, h);
+    rctx.fillStyle = '#fff';
+    rctx.fillRect(0, 0, w, h);
+
+    if (!coefsLSM || points.length === 0) return;
+
+    const residuals = points.map(p => ({
+	x: p.x,
+	r: p.y - polyEval(coefsLSM, p.x),
+    }));
+
+    let rMax = 0;
+    for (const r of residuals) rMax = Math.max(rMax, Math.abs(r.r));
+    if (rMax < 1e-9) rMax = 1;
+
+    const xMin = Math.min(...points.map(p => p.x));
+    const xMax = Math.max(...points.map(p => p.x));
+    const xRange = (xMax - xMin) || 1;
+
+    const toSX = x => pad + ((x - xMin) / xRange) * (w - 2 * pad);
+    const toSY = r => h / 2 - (r / (rMax * 1.2)) * (h / 2 - pad);
+
+    rctx.strokeStyle = '#ccc';
+    rctx.lineWidth = 1;
+    rctx.beginPath();
+    rctx.moveTo(pad, h / 2);
+    rctx.lineTo(w - pad, h / 2);
+    rctx.stroke();
+
+    rctx.fillStyle = '#888';
+    rctx.font = '11px system-ui';
+    rctx.textAlign = 'left';
+    rctx.textBaseline = 'bottom';
+    rctx.fillText('залишки (y - y_)', pad, h / 2 - 4);
+
+    rctx.strokeStyle = '#9b59b6';
+    rctx.lineWidth = 1.5;
+    rctx.setLineDash([4, 3]);
+    rctx.beginPath();
+    let first = true;
+    for (const r of residuals) {
+	const sx = toSX(r.x);
+	const sy = toSY(r.r);
+	if (first) { rctx.moveTo(sx, sy); first = false; }
+	else rctx.lineTo(sx, sy);
+    }
+    rctx.stroke();
+    rctx.setLineDash([]);
+
+    rctx.fillStyle = '#9b59b6';
+    for (const r of residuals) {
+	const sx = toSX(r.x);
+	const sy = toSY(r.r);
+	rctx.beginPath();
+	rctx.arc(sx, sy, 4, 0, Math.PI * 2);
+	rctx.fill();
+    }
+}
